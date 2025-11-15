@@ -1,0 +1,1063 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "BankingStreamingADF"
+		},
+		"AzureDatabricksLS_accessToken": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accessToken' of 'AzureDatabricksLS'"
+		},
+		"LinkedService4SqlDatabase_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'LinkedService4SqlDatabase'"
+		},
+		"LinkedService4Storage_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'LinkedService4Storage'"
+		},
+		"LinkedService4SqlDatabase_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "fintechserver4streaming.database.windows.net"
+		},
+		"LinkedService4SqlDatabase_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "BankingStreamingDB"
+		},
+		"LinkedService4SqlDatabase_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "adminfarhan"
+		},
+		"LinkedService4Storage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://storage4fintechsd.dfs.core.windows.net/"
+		},
+		"StreamingData_properties_SQL_to_ADLS_StreamingRaw_parameters_TableList": {
+			"type": "array",
+			"defaultValue": [
+				"customers",
+				"accounts",
+				"transactions",
+				"branches"
+			]
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/SQL_to_ADLS_StreamingRaw')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEach_Tables",
+						"type": "ForEach",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@createArray('customers', 'accounts', 'transactions', 'branches')",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "CopyTableToADLS",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "SELECT * FROM @{item()}",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DataSet4SourceCA",
+											"type": "DatasetReference",
+											"parameters": {
+												"SQLTableName": "@item()"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DataSetSinkCA",
+											"type": "DatasetReference",
+											"parameters": {
+												"OutputFolder": "@item()"
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "CustomerAndTransactionTransformations",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "ForEach_Tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Silver_Transformations",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"Customers": {},
+									"Transactions": {},
+									"CustomerSink": {},
+									"TransactionSink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "AccountSilverTransformation",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "ForEach_Tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/1. Accounts Silver Transformations"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "BranchSilverTransformation",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "ForEach_Tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/2. Branches Silver Transforamtions"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "DimCustomer",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "CustomerAndTransactionTransformations",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/Gold Layer/dim_customer"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "DimTransaction",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "CustomerAndTransactionTransformations",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/Gold Layer/dim_transaction"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "FactTransaction",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "CustomerAndTransactionTransformations",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/Gold Layer/fact_transaction"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "DimAccount",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "AccountSilverTransformation",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/Gold Layer/dim_account"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "FactAccount",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "AccountSilverTransformation",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/Gold Layer/fact_account"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "FactBranch",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "BranchSilverTransformation",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/Gold Layer/fact_branch"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "DimBranch",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "BranchSilverTransformation",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/BankingStreamingDB/Gold Layer/dim_branch"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricksLS",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"TableList": {
+						"type": "array",
+						"defaultValue": [
+							"customers",
+							"accounts",
+							"transactions",
+							"branches"
+						]
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-11-15T18:04:13Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Silver_Transformations')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureDatabricksLS')]",
+				"[concat(variables('factoryId'), '/datasets/DataSet4SourceCA')]",
+				"[concat(variables('factoryId'), '/datasets/DataSetSinkCA')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AccountDS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4Storage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "accounts",
+						"fileSystem": "bronze"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": [
+					{
+						"name": "account_id",
+						"type": "UTF8"
+					},
+					{
+						"name": "customer_id",
+						"type": "UTF8"
+					},
+					{
+						"name": "account_type",
+						"type": "UTF8"
+					},
+					{
+						"name": "balance",
+						"type": "UTF8"
+					},
+					{
+						"name": "currency",
+						"type": "UTF8"
+					},
+					{
+						"name": "created_at",
+						"type": "UTF8"
+					},
+					{
+						"name": "status",
+						"type": "UTF8"
+					},
+					{
+						"name": "raw_data",
+						"type": "UTF8"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4Storage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/BranchesDS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4Storage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "branches",
+						"fileSystem": "bronze"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": [
+					{
+						"name": "branch_id",
+						"type": "UTF8"
+					},
+					{
+						"name": "branch_name",
+						"type": "UTF8"
+					},
+					{
+						"name": "address",
+						"type": "UTF8"
+					},
+					{
+						"name": "city",
+						"type": "UTF8"
+					},
+					{
+						"name": "country",
+						"type": "UTF8"
+					},
+					{
+						"name": "phone",
+						"type": "UTF8"
+					},
+					{
+						"name": "manager_name",
+						"type": "UTF8"
+					},
+					{
+						"name": "raw_data",
+						"type": "UTF8"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4Storage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/CustomerDS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4Storage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "customers",
+						"fileSystem": "bronze"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": [
+					{
+						"name": "CustomerID",
+						"type": "UTF8"
+					},
+					{
+						"name": "FirstName",
+						"type": "UTF8"
+					},
+					{
+						"name": "LastName",
+						"type": "UTF8"
+					},
+					{
+						"name": "Email",
+						"type": "UTF8"
+					},
+					{
+						"name": "Phone",
+						"type": "UTF8"
+					},
+					{
+						"name": "Address",
+						"type": "UTF8"
+					},
+					{
+						"name": "City",
+						"type": "UTF8"
+					},
+					{
+						"name": "Country",
+						"type": "UTF8"
+					},
+					{
+						"name": "CreatedAt",
+						"type": "UTF8"
+					},
+					{
+						"name": "raw_data",
+						"type": "UTF8"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4Storage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/CustomerParquetSink')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4Storage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "customer",
+						"fileSystem": "silver"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4Storage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DataSet4SourceCA')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4SqlDatabase",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"SQLTableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": {
+						"value": "@dataset().SQLTableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4SqlDatabase')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DataSetSinkCA')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4Storage",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"OutputFolder": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().OutputFolder",
+							"type": "Expression"
+						},
+						"fileSystem": "bronze"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4Storage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/TransactionDS')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4Storage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "transactions",
+						"fileSystem": "bronze"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": [
+					{
+						"name": "transaction_id",
+						"type": "UTF8"
+					},
+					{
+						"name": "account_id",
+						"type": "UTF8"
+					},
+					{
+						"name": "transaction_type",
+						"type": "UTF8"
+					},
+					{
+						"name": "amount",
+						"type": "UTF8"
+					},
+					{
+						"name": "currency",
+						"type": "UTF8"
+					},
+					{
+						"name": "transaction_date",
+						"type": "UTF8"
+					},
+					{
+						"name": "description",
+						"type": "UTF8"
+					},
+					{
+						"name": "raw_data",
+						"type": "UTF8"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4Storage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/TransactionSink')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LinkedService4Storage",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "transaction",
+						"fileSystem": "silver"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LinkedService4Storage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureDatabricksLS')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "https://adb-2162400981502727.7.azuredatabricks.net",
+					"accessToken": {
+						"type": "SecureString",
+						"value": "[parameters('AzureDatabricksLS_accessToken')]"
+					},
+					"newClusterNodeType": "Standard_DS3_v2",
+					"newClusterNumOfWorker": "1",
+					"newClusterSparkEnvVars": {
+						"PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+					},
+					"newClusterVersion": "12.2.x-scala2.12",
+					"clusterOption": "Fixed",
+					"newClusterInitScripts": []
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LinkedService4SqlDatabase')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('LinkedService4SqlDatabase_properties_typeProperties_server')]",
+					"database": "[parameters('LinkedService4SqlDatabase_properties_typeProperties_database')]",
+					"encrypt": "optional",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('LinkedService4SqlDatabase_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('LinkedService4SqlDatabase_password')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LinkedService4Storage')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('LinkedService4Storage_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('LinkedService4Storage_accountKey')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/StreamingData')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "SQL_to_ADLS_StreamingRaw",
+							"type": "PipelineReference"
+						},
+						"parameters": {
+							"TableList": "[parameters('StreamingData_properties_SQL_to_ADLS_StreamingRaw_parameters_TableList')]"
+						}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Minute",
+						"interval": 10,
+						"startTime": "2025-11-15T10:01:00",
+						"timeZone": "Pakistan Standard Time"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/SQL_to_ADLS_StreamingRaw')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Silver_Transformations')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "CustomerDS",
+								"type": "DatasetReference"
+							},
+							"name": "Customers"
+						},
+						{
+							"dataset": {
+								"referenceName": "TransactionDS",
+								"type": "DatasetReference"
+							},
+							"name": "Transactions"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "CustomerParquetSink",
+								"type": "DatasetReference"
+							},
+							"name": "CustomerSink"
+						},
+						{
+							"dataset": {
+								"referenceName": "TransactionSink",
+								"type": "DatasetReference"
+							},
+							"name": "TransactionSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "SelectingColumnsForCustomer"
+						},
+						{
+							"name": "CleaningPNC"
+						},
+						{
+							"name": "FilteringNulls"
+						},
+						{
+							"name": "FullName"
+						},
+						{
+							"name": "SelectingColumns"
+						},
+						{
+							"name": "CastingDateTime"
+						},
+						{
+							"name": "SelectingSolumnsT"
+						},
+						{
+							"name": "FilteringNullsT"
+						},
+						{
+							"name": "CastingTimeDate"
+						},
+						{
+							"name": "UpprCase"
+						},
+						{
+							"name": "AmountCast"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          CustomerID as string,",
+						"          FirstName as string,",
+						"          LastName as string,",
+						"          Email as string,",
+						"          Phone as string,",
+						"          Address as string,",
+						"          City as string,",
+						"          Country as string,",
+						"          CreatedAt as string,",
+						"          raw_data as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> Customers",
+						"source(output(",
+						"          transaction_id as string,",
+						"          account_id as string,",
+						"          transaction_type as string,",
+						"          amount as string,",
+						"          currency as string,",
+						"          transaction_date as string,",
+						"          description as string,",
+						"          raw_data as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> Transactions",
+						"Customers select(mapColumn(",
+						"          Customer_ID = CustomerID,",
+						"          First_Name = FirstName,",
+						"          Last_Name = LastName,",
+						"          Email,",
+						"          Phone,",
+						"          Address,",
+						"          City,",
+						"          Country,",
+						"          Created_At = CreatedAt",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SelectingColumnsForCustomer",
+						"SelectingColumnsForCustomer derive(Phone = regexReplace(Phone,'[^0-9]', '')) ~> CleaningPNC",
+						"CleaningPNC filter(!isNull(Customer_ID)) ~> FilteringNulls",
+						"FilteringNulls derive(Full_Name = concat(First_Name,' ' , Last_Name)) ~> FullName",
+						"FullName select(mapColumn(",
+						"          Customer_ID,",
+						"          Full_Name,",
+						"          Email,",
+						"          Phone,",
+						"          Address,",
+						"          City,",
+						"          Country,",
+						"          Created_At",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SelectingColumns",
+						"SelectingColumns derive(Created_At = toTimestamp(Created_At, 'yyyy-MM-dd HH:mm:ss')) ~> CastingDateTime",
+						"Transactions select(mapColumn(",
+						"          Transaction_ID = transaction_id,",
+						"          Account_ID = account_id,",
+						"          Transaction_Type = transaction_type,",
+						"          Amount = amount,",
+						"          Currency = currency,",
+						"          Transaction_Date = transaction_date,",
+						"          Description = description",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SelectingSolumnsT",
+						"SelectingSolumnsT filter(!isNull(Transaction_ID) && !isNull(Account_ID)) ~> FilteringNullsT",
+						"FilteringNullsT derive(Transaction_Date = toTimestamp(Transaction_Date, 'yyyy-MM-dd HH:mm:ss')) ~> CastingTimeDate",
+						"CastingTimeDate derive(Transaction_Type = upper(Transaction_Type)) ~> UpprCase",
+						"UpprCase derive(Amount = toFloat(Amount)) ~> AmountCast",
+						"CastingDateTime sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> CustomerSink",
+						"AmountCast sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> TransactionSink"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/CustomerDS')]",
+				"[concat(variables('factoryId'), '/datasets/TransactionDS')]",
+				"[concat(variables('factoryId'), '/datasets/CustomerParquetSink')]",
+				"[concat(variables('factoryId'), '/datasets/TransactionSink')]"
+			]
+		}
+	]
+}

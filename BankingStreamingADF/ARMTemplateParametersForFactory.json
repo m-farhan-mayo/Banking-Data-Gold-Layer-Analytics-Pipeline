@@ -1,0 +1,38 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "BankingStreamingADF"
+		},
+		"AzureDatabricksLS_accessToken": {
+			"value": ""
+		},
+		"LinkedService4SqlDatabase_password": {
+			"value": ""
+		},
+		"LinkedService4Storage_accountKey": {
+			"value": ""
+		},
+		"LinkedService4SqlDatabase_properties_typeProperties_server": {
+			"value": "fintechserver4streaming.database.windows.net"
+		},
+		"LinkedService4SqlDatabase_properties_typeProperties_database": {
+			"value": "BankingStreamingDB"
+		},
+		"LinkedService4SqlDatabase_properties_typeProperties_userName": {
+			"value": "adminfarhan"
+		},
+		"LinkedService4Storage_properties_typeProperties_url": {
+			"value": "https://storage4fintechsd.dfs.core.windows.net/"
+		},
+		"StreamingData_properties_SQL_to_ADLS_StreamingRaw_parameters_TableList": {
+			"value": [
+				"customers",
+				"accounts",
+				"transactions",
+				"branches"
+			]
+		}
+	}
+}
