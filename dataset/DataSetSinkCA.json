@@ -1,0 +1,29 @@
+{
+	"name": "DataSetSinkCA",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedService4Storage",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"OutputFolder": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().OutputFolder",
+					"type": "Expression"
+				},
+				"fileSystem": "bronze"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

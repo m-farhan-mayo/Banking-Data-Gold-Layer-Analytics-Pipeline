@@ -1,0 +1,369 @@
+{
+	"name": "SQL_to_ADLS_StreamingRaw",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEach_Tables",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@createArray('customers', 'accounts', 'transactions', 'branches')",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "CopyTableToADLS",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT * FROM @{item()}",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DataSet4SourceCA",
+									"type": "DatasetReference",
+									"parameters": {
+										"SQLTableName": "@item()"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DataSetSinkCA",
+									"type": "DatasetReference",
+									"parameters": {
+										"OutputFolder": "@item()"
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "CustomerAndTransactionTransformations",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "ForEach_Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "Silver_Transformations",
+						"type": "DataFlowReference"
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "AccountSilverTransformation",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "ForEach_Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/1. Accounts Silver Transformations"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "BranchSilverTransformation",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "ForEach_Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/2. Branches Silver Transforamtions"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "DimCustomer",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "CustomerAndTransactionTransformations",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/Gold Layer/dim_customer"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "DimTransaction",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "CustomerAndTransactionTransformations",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/Gold Layer/dim_transaction"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "FactTransaction",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "CustomerAndTransactionTransformations",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/Gold Layer/fact_transaction"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "DimAccount",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "AccountSilverTransformation",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/Gold Layer/dim_account"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "FactAccount",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "AccountSilverTransformation",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/Gold Layer/fact_account"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "FactBranch",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "BranchSilverTransformation",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/Gold Layer/fact_branch"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "DimBranch",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "BranchSilverTransformation",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/BankingStreamingDB/Gold Layer/dim_branch"
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricksLS",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"TableList": {
+				"type": "array",
+				"defaultValue": [
+					"customers",
+					"accounts",
+					"transactions",
+					"branches"
+				]
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-11-15T18:04:13Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

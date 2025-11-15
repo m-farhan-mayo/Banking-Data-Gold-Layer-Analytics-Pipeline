@@ -1,0 +1,167 @@
+{
+	"name": "Silver_Transformations",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "CustomerDS",
+						"type": "DatasetReference"
+					},
+					"name": "Customers"
+				},
+				{
+					"dataset": {
+						"referenceName": "TransactionDS",
+						"type": "DatasetReference"
+					},
+					"name": "Transactions"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "CustomerParquetSink",
+						"type": "DatasetReference"
+					},
+					"name": "CustomerSink"
+				},
+				{
+					"dataset": {
+						"referenceName": "TransactionSink",
+						"type": "DatasetReference"
+					},
+					"name": "TransactionSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "SelectingColumnsForCustomer"
+				},
+				{
+					"name": "CleaningPNC"
+				},
+				{
+					"name": "FilteringNulls"
+				},
+				{
+					"name": "FullName"
+				},
+				{
+					"name": "SelectingColumns"
+				},
+				{
+					"name": "CastingDateTime"
+				},
+				{
+					"name": "SelectingSolumnsT"
+				},
+				{
+					"name": "FilteringNullsT"
+				},
+				{
+					"name": "CastingTimeDate"
+				},
+				{
+					"name": "UpprCase"
+				},
+				{
+					"name": "AmountCast"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          CustomerID as string,",
+				"          FirstName as string,",
+				"          LastName as string,",
+				"          Email as string,",
+				"          Phone as string,",
+				"          Address as string,",
+				"          City as string,",
+				"          Country as string,",
+				"          CreatedAt as string,",
+				"          raw_data as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> Customers",
+				"source(output(",
+				"          transaction_id as string,",
+				"          account_id as string,",
+				"          transaction_type as string,",
+				"          amount as string,",
+				"          currency as string,",
+				"          transaction_date as string,",
+				"          description as string,",
+				"          raw_data as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> Transactions",
+				"Customers select(mapColumn(",
+				"          Customer_ID = CustomerID,",
+				"          First_Name = FirstName,",
+				"          Last_Name = LastName,",
+				"          Email,",
+				"          Phone,",
+				"          Address,",
+				"          City,",
+				"          Country,",
+				"          Created_At = CreatedAt",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectingColumnsForCustomer",
+				"SelectingColumnsForCustomer derive(Phone = regexReplace(Phone,'[^0-9]', '')) ~> CleaningPNC",
+				"CleaningPNC filter(!isNull(Customer_ID)) ~> FilteringNulls",
+				"FilteringNulls derive(Full_Name = concat(First_Name,' ' , Last_Name)) ~> FullName",
+				"FullName select(mapColumn(",
+				"          Customer_ID,",
+				"          Full_Name,",
+				"          Email,",
+				"          Phone,",
+				"          Address,",
+				"          City,",
+				"          Country,",
+				"          Created_At",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectingColumns",
+				"SelectingColumns derive(Created_At = toTimestamp(Created_At, 'yyyy-MM-dd HH:mm:ss')) ~> CastingDateTime",
+				"Transactions select(mapColumn(",
+				"          Transaction_ID = transaction_id,",
+				"          Account_ID = account_id,",
+				"          Transaction_Type = transaction_type,",
+				"          Amount = amount,",
+				"          Currency = currency,",
+				"          Transaction_Date = transaction_date,",
+				"          Description = description",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectingSolumnsT",
+				"SelectingSolumnsT filter(!isNull(Transaction_ID) && !isNull(Account_ID)) ~> FilteringNullsT",
+				"FilteringNullsT derive(Transaction_Date = toTimestamp(Transaction_Date, 'yyyy-MM-dd HH:mm:ss')) ~> CastingTimeDate",
+				"CastingTimeDate derive(Transaction_Type = upper(Transaction_Type)) ~> UpprCase",
+				"UpprCase derive(Amount = toFloat(Amount)) ~> AmountCast",
+				"CastingDateTime sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> CustomerSink",
+				"AmountCast sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> TransactionSink"
+			]
+		}
+	}
+}

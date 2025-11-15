@@ -1,0 +1,25 @@
+{
+	"name": "DataSet4SourceCA",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedService4SqlDatabase",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"SQLTableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": {
+				"value": "@dataset().SQLTableName",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

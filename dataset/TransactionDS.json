@@ -1,0 +1,54 @@
+{
+	"name": "TransactionDS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedService4Storage",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "transactions",
+				"fileSystem": "bronze"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": [
+			{
+				"name": "transaction_id",
+				"type": "UTF8"
+			},
+			{
+				"name": "account_id",
+				"type": "UTF8"
+			},
+			{
+				"name": "transaction_type",
+				"type": "UTF8"
+			},
+			{
+				"name": "amount",
+				"type": "UTF8"
+			},
+			{
+				"name": "currency",
+				"type": "UTF8"
+			},
+			{
+				"name": "transaction_date",
+				"type": "UTF8"
+			},
+			{
+				"name": "description",
+				"type": "UTF8"
+			},
+			{
+				"name": "raw_data",
+				"type": "UTF8"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

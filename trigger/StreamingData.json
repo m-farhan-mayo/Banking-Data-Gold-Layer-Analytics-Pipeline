@@ -1,0 +1,32 @@
+{
+	"name": "StreamingData",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "SQL_to_ADLS_StreamingRaw",
+					"type": "PipelineReference"
+				},
+				"parameters": {
+					"TableList": [
+						"customers",
+						"accounts",
+						"transactions",
+						"branches"
+					]
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Minute",
+				"interval": 10,
+				"startTime": "2025-11-15T10:01:00",
+				"timeZone": "Pakistan Standard Time"
+			}
+		}
+	}
+}

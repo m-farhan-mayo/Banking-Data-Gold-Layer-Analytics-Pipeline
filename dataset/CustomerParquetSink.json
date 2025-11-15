@@ -1,0 +1,21 @@
+{
+	"name": "CustomerParquetSink",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedService4Storage",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "customer",
+				"fileSystem": "silver"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

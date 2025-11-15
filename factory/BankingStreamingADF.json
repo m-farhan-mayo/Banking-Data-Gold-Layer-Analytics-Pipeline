@@ -1,0 +1,9 @@
+{
+	"name": "BankingStreamingADF",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "1022d5df-cf8b-4219-af3b-1ef817e0790a",
+		"tenantId": "83efc3b4-39a2-4dec-a3c2-b8f7be8f7a28"
+	}
+}

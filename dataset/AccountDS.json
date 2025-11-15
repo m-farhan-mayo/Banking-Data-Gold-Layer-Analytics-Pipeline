@@ -1,0 +1,54 @@
+{
+	"name": "AccountDS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedService4Storage",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "accounts",
+				"fileSystem": "bronze"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": [
+			{
+				"name": "account_id",
+				"type": "UTF8"
+			},
+			{
+				"name": "customer_id",
+				"type": "UTF8"
+			},
+			{
+				"name": "account_type",
+				"type": "UTF8"
+			},
+			{
+				"name": "balance",
+				"type": "UTF8"
+			},
+			{
+				"name": "currency",
+				"type": "UTF8"
+			},
+			{
+				"name": "created_at",
+				"type": "UTF8"
+			},
+			{
+				"name": "status",
+				"type": "UTF8"
+			},
+			{
+				"name": "raw_data",
+				"type": "UTF8"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

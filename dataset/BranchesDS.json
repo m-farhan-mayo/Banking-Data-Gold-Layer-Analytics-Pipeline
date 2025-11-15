@@ -1,0 +1,54 @@
+{
+	"name": "BranchesDS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedService4Storage",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "branches",
+				"fileSystem": "bronze"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": [
+			{
+				"name": "branch_id",
+				"type": "UTF8"
+			},
+			{
+				"name": "branch_name",
+				"type": "UTF8"
+			},
+			{
+				"name": "address",
+				"type": "UTF8"
+			},
+			{
+				"name": "city",
+				"type": "UTF8"
+			},
+			{
+				"name": "country",
+				"type": "UTF8"
+			},
+			{
+				"name": "phone",
+				"type": "UTF8"
+			},
+			{
+				"name": "manager_name",
+				"type": "UTF8"
+			},
+			{
+				"name": "raw_data",
+				"type": "UTF8"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

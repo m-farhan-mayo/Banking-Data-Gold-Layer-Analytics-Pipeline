@@ -1,0 +1,12 @@
+{
+	"name": "LinkedService4Storage",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://storage4fintechsd.dfs.core.windows.net/",
+			"encryptedCredential": "ew0KICAiVmVyc2lvbiI6ICIyMDE3LTExLTMwIiwNCiAgIlByb3RlY3Rpb25Nb2RlIjogIktleSIsDQogICJTZWNyZXRDb250ZW50VHlwZSI6ICJQbGFpbnRleHQiLA0KICAiQ3JlZGVudGlhbElkIjogIkRBVEFGQUNUT1JZQDU3QzQyQjE1LTQ4MzQtNEQ1Qi05NDY4LTRGN0NCMUQyQzRFRl9lZDZhY2Y4ZC1iODI3LTQ4MjUtOTFmNS1hY2JhMjJmOGRlZTkiDQp9"
+		}
+	}
+}
